@@ -34,4 +34,5 @@ dmimi 移动版
 
 ===================
 实例网站
-http://h5.m.laiwang.com/home/app/minisite.html#root[请用手机浏览]
+http://h5.m.laiwang.com/home/app/minisite.html#root
+[请用手机浏览]
