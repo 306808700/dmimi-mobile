@@ -32,4 +32,7 @@ dmimi 移动版
         2014-5-12 v1.0
         1.$.ani 动画函数，(css3)支持GPU硬件加速
 
-*/
+===================
+实例网站
+http://h5.m.laiwang.com/home/app/minisite.html#root
+[请用手机浏览]
