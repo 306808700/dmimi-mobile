@@ -3,6 +3,11 @@ dmimi-mobile
 
 dmimi 移动版
 
+===========
+
+1.压缩后仅有4.8k  同类型的zepto 9.8k
+2.并且包含了一个功能强大的 template 模版函数。
+
      @setting UTF-8
 
         @name dmimi-mobile.js 
