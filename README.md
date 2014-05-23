@@ -8,12 +8,11 @@ dmimi 移动版
     @name dmimi-mobile.js 
     @version v1.1
     @by Dmimi.js
-
-    Copyright (c) 2013,linchangyuan 
-    developer more intimate more intelligent  
+    @author linchangyuan 
+    @create 2014-4-25
+    @it's free
     
-    “ 赞助作者 https://me.alipay.com/linchangyuan ”
-
+    
     updata
         2014-4-25  v1.0
         1.基于Dmimi.js, dmimi-mobile.js 移动版诞生 v1.0
