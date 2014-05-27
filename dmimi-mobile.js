@@ -335,6 +335,7 @@ DMIMI.plugin("tool", function($) {
         width: function(data) {
             if(data){
                 this[0].style.width = data;
+                return this;
             }
             return this[0].offsetWidth;
         },
@@ -527,9 +528,9 @@ DMIMI.plugin("tool", function($) {
                     ele[0].style[i] = prop[i];
                 }
             },1);
-            setTimeout(function(){
+            ele.off("webkitTransitionEnd").on("webkitTransitionEnd",function(){
                 if(callback){callback();}
-            },time*1000);
+            });
         },
         appendTo: function(data) {
             data.append(this);
@@ -970,11 +971,10 @@ DMIMI.plugin("event", function($) {
         delegate: function(selector, type, callback) {
             var ele = this;
             ele.on(type, function(e) {
-                e = e || window.event;
                 var dom = $._selector(selector, ele[0]);
-                var target = e.target || e.srcElement;
+                var target = e.target;
                 $.each(dom, function() {
-                    if (target == this) {
+                    if (target == this || this.contains(target)) {
                         callback.apply(this);
                         return;
                     }
@@ -1006,23 +1006,26 @@ DMIMI.plugin("net", function($) {
             };
 
             var opt = $.extend(opts,options);
-            var symbol,paramCallback,xmlhttp, script,link, head = $("head")[0];
+            var callbackName,symbol,paramCallback,xmlhttp, script,link, head = $("head");
 
             if(opt.dataType.match(/jsonp$|js$/)){
-                window["jsonpcallback"+$.ajaxNum] = function(res){
-                    opt.success(res);
+                callbackName = "jsonpcallback"+$.ajaxNum;
+                window[callbackName] = function(res){
                     $(script).remove();
+                    delete window[callbackName];
+                    return opt.success(res);
                 }
+                
                 symbol = opt.url.indexOf("?")!=-1?"&":"?";
                 paramCallback = symbol+"callback=jsonpcallback"+$.ajaxNum;
 
-                script = $.create("script",{type:"text/javascript",src:opt.url+paramCallback})[0];
-                head.appendChild(script);
+                script = $.create("script",{type:"text/javascript",src:opt.url+paramCallback});
+                head.append(script);
                 return false;
             }
             if(opt.dataType=="css"){
-                link = $.create("link",{rel:"stylesheet",href:opt.url})[0];
-                head.appendChild(link);
+                link = $.create("link",{rel:"stylesheet",href:opt.url});
+                head.append(link);
                 return false;
             }
         },
