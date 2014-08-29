@@ -1,13 +1,11 @@
 //@setting UTF-8
 /*
     @name dmimi-mobile.js 
-    @version v1.1
+    @version v1.2
     @by Dmimi.js
 
     Copyright (c) 2013,linchangyuan 
     developer more intimate more intelligent  
-    
-    “ 赞助作者 https://me.alipay.com/linchangyuan ”
 
     updata
         2014-4-25  v1.0
@@ -24,8 +22,15 @@
         1.$.template 改写
         2.添加支持函数式回调
         
-        2014-5-12 v1.0
+        2014-5-12 v1.1
         1.$.ani 动画函数，(css3)支持GPU硬件加速
+
+        2014-7-30 v1.1
+        1.$.on 支持on(type,selector,callback) 写法  
+
+        2014-8-29 v1.2
+        更新了许多东西，以后补上日志
+
 
 */
 
@@ -122,7 +127,9 @@ var DMIMI = (function(){
         return object;
     }
     $.validateSelector = function(dom, object) {
+        if(!dom) return false;
         var attributeFun = function(dom, object) {
+
                 var n, v;
                 if (object.attrName) {
                     if (!dom.getAttribute(object.attrName)) {
@@ -142,6 +149,7 @@ var DMIMI = (function(){
                     }
                 }
                 if (object.className) {
+
                     if (!DMIMI.hasClass(object.classValue, dom.className)) {
                         return false;
                     }
@@ -242,11 +250,11 @@ var DMIMI = (function(){
         }
         return obj;
     }
-})(DMIMI);;
-
+})(DMIMI);
 DMIMI.plugin("tool", function($) {
     var self;
     return ({
+        
         get: function(i) {
             i = i || 0;
             return i >= 0 ? this[i] : this[this.length + i];
@@ -284,8 +292,13 @@ DMIMI.plugin("tool", function($) {
         html: function(data) {
             var ele = this;
             if (typeof data == "string" || typeof data == "number") {
+          
                 $.each(ele, function(index, dom) {
-                    this.innerHTML = data;
+                    try{
+                        this.innerHTML = data;
+                    }catch(err){
+                        this.innerText = data;
+                    }
                 });
                 return ele;
             }
@@ -301,6 +314,9 @@ DMIMI.plugin("tool", function($) {
                 });
                 return arr.length == 1 ? arr.join("") : arr;
             }
+            if(typeof data == "function"){
+                ele.html(data.call(this));
+            }
             if (data.Dmimi) {
                 ele.html("").append(data);
                 return ele;
@@ -311,6 +327,13 @@ DMIMI.plugin("tool", function($) {
             var div = $.create("div");
             div.append(ele);
             return div.html();
+        },
+        param:function(){
+            var str = window.location.href,temp = {};
+            if(str.indexOf("?")!=-1){
+                temp = $.paramToJson(str.split("?")[1]);
+            }
+            return temp;
         },
         text: function(data) {
             if (data || data == "") {
@@ -329,7 +352,7 @@ DMIMI.plugin("tool", function($) {
                 });
                 return this;
             } else {
-                return this[0].getAttribute(name);
+                return this[0]?this[0].getAttribute(name):undefined;
             }
         },
         width: function(data) {
@@ -367,6 +390,16 @@ DMIMI.plugin("tool", function($) {
         },
         hide: function(num) {
             var ele = this;
+            if(num){
+                this.ani({
+                    "opacity":"0"
+                },num/1000,function(){
+                    ele.css({
+                        display: "none"
+                    });
+                });
+                return;
+            }
             this.css({
                 display: "none"
             });
@@ -416,6 +449,16 @@ DMIMI.plugin("tool", function($) {
             element.dispatchEvent(evt);
             return this;
         },
+        filter:function(selector){
+            var domTemp = [];
+            $.each(this,function(){
+                var object = $._test("attr",selector);
+                if($.validateSelector(this, object)){
+                    domTemp.push(this);
+                }
+            });
+            return $.classArray(domTemp);
+        },
         template: function(str, json ,listFun,rootFun) {
 
             /*
@@ -441,7 +484,9 @@ DMIMI.plugin("tool", function($) {
                 if(futherArr){
                     for(var j=0;j<futherArr.length;j++){
                         var resStr = futherArr[j].replace(/[{}]/g,"");
-                        str = str.replace(futherArr[j],$.futher(obj,resStr)||"");
+                        if($.futher(obj,resStr)){
+                            str = str.replace(futherArr[j],$.futher(obj,resStr)||"");
+                        }
                     }
                 }
                 return str;
@@ -479,6 +524,7 @@ DMIMI.plugin("tool", function($) {
             }
 
             for (var name in json) {
+
                 if (typeof json[name] == "object") {
                     var indexNum = str.indexOf("[" + name + "]");
                     var lastNum = str.lastIndexOf("[/" + name + "]");
@@ -489,48 +535,79 @@ DMIMI.plugin("tool", function($) {
                     }
 
                     var getStr = str.substring(indexNum + 2 + name.length, lastNum);
-                    
                     for (var i = 0; i < json[name].length; i++) {
                         var newStrP = getStr;
                         for (var s in listFun) {
                             newStrP = newStrP.replace(_eval(s), listFun[s](json[name][i],i));
                         }
-                        for (var s in json[name][i]) {
-                            newStrP = newStrP.replace(_eval(s), json[name][i][s]);
+
+                        if(typeof json[name][i]=="string"){
+                            newStrP = newStrP.replace(_eval("value"), json[name][i]);
+                        }else{
+                            for (var s in json[name][i]) {
+                                newStrP = newStrP.replace(_eval(s), json[name][i][s]);
+                            }
                         }
                         newStrP = futherFn(json[name][i],newStrP);
                         newStr += newStrP;
                     }
                     str = str.replace("[" + name + "]" + getStr + "[/" + name + "]", newStr);
                 } else {
-                    if (json[name]) {
+                    if (json[name]!=="") {
                         str = str.replace(_eval(name), json[name]);
                     }
                 }
             }
             return str.replace(/\{[a-z.A-Z]+\}/g,"");
         },
+        anipause:function(){
+            var self = this;
+            this.css({
+                "-webkit-transform":this.css("-webkit-transform"),
+
+            });
+            setTimeout(function(){
+                self.css({
+                    "-webkit-transition":"none"
+                });
+            },1)
+            return this;
+        },
         anistop:function(){
             this.css({
                 "-webkit-transition":"none"
             });
+            this.removeAttr('animation');
+            this.off("webkitTransitionEnd");
             return this;
         },
         ani:function(prop,time,ease,callback){
+            var ele = this;
             time = time || 0.3;
             ease = ease || "ease-in";
-            var ele = this;
+            if(typeof ease == "function"){
+                callback = ease;
+                ease = "ease-in";
+            }
+            if(typeof time == "function"){
+                callback = time;
+                time = 0.3;
+            }
             ele.css({
                 "-webkit-transition":"all "+time+"s "+ease
             });
+
             setTimeout(function(){
                 for(var i in prop){
                     ele[0].style[i] = prop[i];
                 }
-            },1);
+                ele.attr('animation',"true");
+            },1000/10);
             ele.off("webkitTransitionEnd").on("webkitTransitionEnd",function(){
-                if(callback){callback();}
+                if(callback){callback.call(this)}
+                ele.removeAttr('animation');
             });
+            return this;
         },
         appendTo: function(data) {
             data.append(this);
@@ -567,25 +644,26 @@ DMIMI.plugin("tool", function($) {
             var pattern = new RegExp("(^|\\s)" + selector + "(\\s|$)");
             return pattern.test(className);
         },
-        addClass: function(data) {
+        addClass:function(data){
             var ele = this;
             var _class;
-            $.each(ele, function() {
+            $.each(ele,function(){
                 _class = this.className;
-                if (_class.indexOf(data) != -1) {
-                    return;
-                }
-                _class = _class.split(" ") || [];
+                var res = eval("/^"+data+"\\s|\\s"+data+"$|\\s"+data+"\\s/");
+
+                if(_class.match(res)){return;}
+                _class = _class.split(" ")||[];
                 _class.push(data);
                 _class = _class.join(" ");
-                this.className = $.trim(_class);
+                this.className = _class;
             });
             return ele;
         },
         removeClass: function(data) {
             var ele = this;
             $.each(ele, function() {
-                this.className = data?$.trim(this.className.replace(data,"")):"";
+                var res = eval("/^"+data+"\\s|\\s"+data+"$|\\s"+data+"\\s/");
+                this.className = data?$.trim(this.className.replace(res," ")):"";
             });
             return ele;
         },
@@ -623,7 +701,7 @@ DMIMI.plugin("tool", function($) {
         eq: function(i) {
             var ele = this,
                 i = i || 0;
-            return i >= 0 ? $(ele[i]) : $(ele[ele[0].length + i]);
+            return i >= 0 ? $(ele[i]) : $(ele[$(ele).length + i]);
         },
         inArray: function(a, arr) {
             if (a.Dmimi) {
@@ -692,6 +770,54 @@ DMIMI.plugin("tool", function($) {
         ua: function() {
             return window.navigator.userAgent.toLowerCase();
         },
+        os: function(){
+            return function(n, l) {
+                var q = /\s*([\-\w ]+)[\s\/\:]([\d_]+\b(?:[\-\._\/]\w+)*)/,
+                    r = /([\w\-\.]+[\s\/][v]?[\d_]+\b(?:[\-\._\/]\w+)*)/g,
+                    s = /\b(?:(blackberry\w*|bb10)|(rim tablet os))(?:\/(\d+\.\d+(?:\.\w+)*))?/,
+                    t = /\bsilk-accelerated=true\b/,
+                    u = /\bfluidapp\b/,
+                    v = /(\bwindows\b|\bmacintosh\b|\blinux\b|\bunix\b)/,
+                    w = /(\bandroid\b|\bipad\b|\bipod\b|\bwindows phone\b|\bwpdesktop\b|\bxblwp7\b|\bzunewp7\b|\bwindows ce\b|\bblackberry\w*|\bbb10\b|\brim tablet os\b|\bmeego|\bwebos\b|\bpalm|\bsymbian|\bj2me\b|\bdocomo\b|\bpda\b|\bchtml\b|\bmidp\b|\bcldc\b|\w*?mobile\w*?|\w*?phone\w*?)/,
+                    x = /(\bxbox\b|\bplaystation\b|\bnintendo\s+\w+)/,
+                    k = {
+                        parse: function(b) {
+                            var a = {};
+                            b = ("" + b).toLowerCase();
+                            if (!b) return a;
+                            for (var c, e, g = b.split(/[()]/), f = 0, k = g.length; f < k; f++) if (f % 2) {
+                                var m = g[f].split(";");
+                                c = 0;
+                                for (e = m.length; c < e; c++) if (q.exec(m[c])) {
+                                    var h = RegExp.$1.split(" ").join("_"),
+                                        l = RegExp.$2;
+                                    if (!a[h] || parseFloat(a[h]) < parseFloat(l)) a[h] = l
+                                }
+                            } else if (m = g[f].match(r)) for (c = 0, e = m.length; c < e; c++) h = m[c].split(/[\/\s]+/), h.length && "mozilla" !== h[0] && (a[h[0].split(" ").join("_")] = h.slice(1).join("-"));
+                            w.exec(b) ? (a.mobile = RegExp.$1, s.exec(b) && (delete a[a.mobile], a.blackberry = a.version || RegExp.$3 || RegExp.$2 || RegExp.$1, RegExp.$1 ? a.mobile = "blackberry" : "0.0.1" === a.version && (a.blackberry = "7.1.0.0"))) : v.exec(b) ? a.desktop = RegExp.$1 : x.exec(b) && (a.game = RegExp.$1, c = a.game.split(" ").join("_"), a.version && !a[c] && (a[c] = a.version));
+                            a.intel_mac_os_x ? (a.mac_os_x = a.intel_mac_os_x.split("_").join("."), delete a.intel_mac_os_x) : a.cpu_iphone_os ? (a.ios = a.cpu_iphone_os.split("_").join("."), delete a.cpu_iphone_os) : a.cpu_os ? (a.ios = a.cpu_os.split("_").join("."), delete a.cpu_os) : "iphone" !== a.mobile || a.ios || (a.ios = "1");
+                            a.opera && a.version ? (a.opera = a.version, delete a.blackberry) : t.exec(b) ? a.silk_accelerated = !0 : u.exec(b) && (a.fluidapp = a.version);
+                            if (a.applewebkit) a.webkit = a.applewebkit, delete a.applewebkit, a.opr && (a.opera = a.opr, delete a.opr, delete a.chrome), a.safari && (a.chrome || a.crios || a.opera || a.silk || a.fluidapp || a.phantomjs || a.mobile && !a.ios ? delete a.safari : a.safari = a.version && !a.rim_tablet_os ? a.version : {
+                                419: "2.0.4",
+                                417: "2.0.3",
+                                416: "2.0.2",
+                                412: "2.0",
+                                312: "1.3",
+                                125: "1.2",
+                                85: "1.0"
+                            }[parseInt(a.safari, 10)] || a.safari);
+                            else if (a.msie || a.trident) if (a.opera || (a.ie = a.msie || a.rv), delete a.msie, a.windows_phone_os) a.windows_phone = a.windows_phone_os, delete a.windows_phone_os;
+                            else {
+                                if ("wpdesktop" === a.mobile || "xblwp7" === a.mobile || "zunewp7" === a.mobile) a.mobile = "windows desktop", a.windows_phone = 9 > +a.ie ? "7.0" : 10 > +a.ie ? "7.5" : "8.0", delete a.windows_nt
+                            } else if (a.gecko || a.firefox) a.gecko = a.rv;
+                            a.rv && delete a.rv;
+                            a.version && delete a.version;
+                            return a
+                        }
+                    };
+                return k.parse(l);
+            }(document.documentElement, navigator.userAgent)
+        },
         futher: function(ele, str) {
             var arr = str.split("."),
                 len = arr.length,
@@ -700,9 +826,13 @@ DMIMI.plugin("tool", function($) {
 
             function fn(ele) {
                 if (i < len) {
-                    obj = ele[arr[i]];
-                    i++;
-                    fn(obj);
+                    if(ele[arr[i]]){
+                        obj = ele[arr[i]];
+                        i++;
+                        fn(obj);
+                    }else{
+                        obj = false;
+                    }
                 }
             }
             fn(ele);
@@ -810,9 +940,6 @@ DMIMI.plugin("selector", function($) {
             }
             return $.classArray([]);
         },
-        /*
-            target 原生dom
-        */
         contains:function(target){
             var ele = this;
             var bool = false;
@@ -832,7 +959,9 @@ DMIMI.plugin("selector", function($) {
             var object = $._test("attr", selector);
             (function search(d){
                 if(!$.validateSelector(d[0],object)){
-                    search(d.parent());
+                    if(d.parent()[0]){
+                        search(d.parent());
+                    }
                 }else{
                     dom = d;
                 }
@@ -931,10 +1060,16 @@ DMIMI.plugin("selector", function($) {
             return this;
         }
     }).init();
-});;
+});
 DMIMI.plugin("event", function($) {
     return ({
-        on: function(type, callback) {
+        on: function(type, selector, callback) {
+            if(selector && typeof selector!="function"){
+                this.delegate(selector,type,callback);
+                return this;
+            }else{
+                callback = selector;
+            }
             callback = callback || function() {};
             $.each(this, function() {
                 var dom = this;
@@ -947,8 +1082,16 @@ DMIMI.plugin("event", function($) {
             });
             return this;
         },
-        off: function(type, callback) {
+        off: function(type, selector, callback) {
             var ele = this;
+
+            if(selector && typeof selector!="function"){
+                this.delegate(selector,type,callback);
+                return this;
+            }else{
+                callback = selector;
+            }
+
             function removeEvent(dom, ev, type, callback) {
                 if (callback) {
                     dom[ev](type, callback);
@@ -987,9 +1130,10 @@ DMIMI.plugin("event", function($) {
             return this;
         }
     }).init();
-});;
+});
 DMIMI.plugin("net", function($) {
     return ({
+        
         paramToJson:function(str){
             var arr = str.split("&"),arr2 = [],temp = {},i;
             for(i=0;i<arr.length;i++){
@@ -998,18 +1142,31 @@ DMIMI.plugin("net", function($) {
             }
             return temp;
         },
+        jsonToParam:function(json){
+            var str = "";
+            for(var i in json){
+                str+=i+"="+json[i]+"&";
+            }
+            str = str.substr(0,str.length-1);
+            return str;
+        },
         ajax: function(options) {
+
             $.ajaxNum?$.ajaxNum++:$.ajaxNum = 1;
             var opts = {
+                url:"aboutblank",
+                type:"post",
                 dataType: "json",
-                success: function() {}
+                success: function() {},
+                complete:function(){}
             };
+
 
             var opt = $.extend(opts,options);
             var callbackName,symbol,paramCallback,xmlhttp, script,link, head = $("head");
 
-            if(opt.dataType.match(/jsonp$|js$/)){
-                callbackName = "jsonpcallback"+$.ajaxNum;
+            if(opt.dataType == "jsonp"){
+                callbackName = opt.jsonp || "jsonpcallback"+$.ajaxNum;
                 window[callbackName] = function(res){
                     $(script).remove();
                     delete window[callbackName];
@@ -1020,6 +1177,16 @@ DMIMI.plugin("net", function($) {
                 paramCallback = symbol+"callback=jsonpcallback"+$.ajaxNum;
 
                 script = $.create("script",{type:"text/javascript",src:opt.url+paramCallback});
+                
+                head.append(script);
+                return false;
+            }
+            if(opt.dataType=="js"){
+                script = $.create("script",{type:"text/javascript",src:opt.url});
+                script[0].onload = function(){
+                    $(script).remove();
+                    return opt.success();
+                };    
                 head.append(script);
                 return false;
             }
@@ -1028,6 +1195,34 @@ DMIMI.plugin("net", function($) {
                 head.append(link);
                 return false;
             }
+
+            if(opt.type.match(/post|get/)){
+                var xhr =  new XMLHttpRequest();
+                xhr.open(opt.type.toUpperCase(), opt.url, true);  
+                xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+                if(opt.beforeSend){
+                    opt.beforeSend(xhr);
+                }
+                xhr.send(opt.data?$.jsonToParam(opt.data):null);
+                xhr.onreadystatechange = function(){  
+                    //alert(xhr.readyState);  
+                    if (xhr.readyState == 4){ // 代表读取服务器的响应数据完成  
+
+                        opt.complete();
+                        if (xhr.status == 200){ // 代表服务器响应正常  
+                            // 获取响应的数据  
+                            if(opt.dataType="json"){
+                                opt.success(JSON.parse(xhr.responseText));
+                            }else{
+                                opt.success(xhr.responseText);
+                            }
+                        }else{
+                            opt.error(xhr.responseText);  
+                        }
+                    }  
+                };  
+            }
+            return xhr;
         },
         init: function() {
             return this;
