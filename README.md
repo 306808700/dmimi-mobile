@@ -8,7 +8,7 @@
      @setting UTF-8
 
         @name dmimi-mobile.js 
-        @version v1.1
+        @version v1.2
         @by Dmimi.js
         @author linchangyuan 
         @create 2014-4-25
@@ -31,11 +31,15 @@
             2.添加支持函数式回调
             
             2014-5-12 v1.0
-            1.$.ani 动画函数，(css3)支持GPU硬件加速
+            1.$.ani 动画函数，(css3)特性
             
-            2014-5-24 v1.1
-            1.发布到github
-            2.开源
+
+            2014-7-30 v1.1
+            1.$.on 支持on(type,selector,callback) 写法  
+     
+            2014-8-29 v1.2
+            更新了许多东西，以后补上日志
+            
 
 ===================
 实例网站
