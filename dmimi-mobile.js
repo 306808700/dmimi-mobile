@@ -56,7 +56,7 @@ var DMIMI = (function(){
         }
         if (typeof selector == "object" || selector.nodeType === 1 || selector.nodeType === 9) {
             if (selector == document) {
-                selector = document.body;
+                selector = document.documentElement;
             }
             return $.classArray([selector]);
         }
@@ -355,7 +355,10 @@ DMIMI.plugin("tool", function($) {
                 return this[0]?this[0].getAttribute(name):undefined;
             }
         },
-        width: function(data) {
+        width: function(data) {.
+            if(this[0]==window){
+                return this[0].innerWidth;
+            }
             if(data){
                 this[0].style.width = data;
                 return this;
