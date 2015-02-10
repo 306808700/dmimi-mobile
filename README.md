@@ -1,18 +1,11 @@
-# dmimi-mobile v1.1
+# dmimi-mobile v1.2
 ---
->1.压缩后仅有4.8k  同类型的zepto 9.8k
 
->2.并且包含了一个速度极快，功能强大的 template 模版函数，实例网站中有用到。有使用的问题请到Q群 大前端江湖-Dmimi 259206966
-
-###
-     @setting UTF-8
-
+        @setting UTF-8
         @name dmimi-mobile.js 
         @version v1.2
-        @by Dmimi.js
         @author linchangyuan 
         @create 2014-4-25
-        @it's free
         
         
         updata
@@ -42,6 +35,3 @@
             
 
 ===================
-实例网站
-http://h5.m.laiwang.com/home/app/minisite.html#root
-[请用手机浏览]
