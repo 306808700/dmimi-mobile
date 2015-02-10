@@ -63,8 +63,21 @@ var DMIMI = (function(){
         if (String(selector).match(/^</)) {
             return $.create("div",{},selector).children();
         }
+
+        // 选择器错误验证提示
+        if($._error(doc.querySelectorAll(selector),selector)){
+            return $.classArray([]);
+        }
+
+
         return $.classArray(doc.querySelectorAll(selector));
     };
+    $._error = function(data,selector){
+        if(!data[0]){
+            console.warn("selector '"+selector+"' is not find");
+            return true;
+        }
+    }
     $._test = function(name, selector) {
         var results;
         var object = {};
@@ -183,7 +196,6 @@ var DMIMI = (function(){
                     return arr;
                 }
             }
-
         var arr = toArray(dom);
         for (var i in $) {
             arr[i] = $[i];
@@ -254,7 +266,47 @@ var DMIMI = (function(){
 DMIMI.plugin("tool", function($) {
     var self;
     return ({
-        
+        zoom:function(){
+            // "adaptive"
+            if(!$(".zoom")[0]){
+                console.warn(".zoom is undefined");
+                return;
+            }
+            var cwidth = document.body.clientWidth;
+
+            // 大屏，ipad？
+            if(cwidth>720){
+                $(".zoom").css({
+                    "margin":"auto",
+                    "width":"320px"
+                });
+                return;
+            }
+
+            var bl = cwidth/320;
+            $(".zoom").css({
+                "-webkit-transform":"scale("+bl+")",
+                "-webkit-transform-origin":"0px 0px 0px",
+                "margin":"0px",
+                "width":"320px",
+                "overflow":"hidden"
+            });
+        },
+        data:function(name,value){
+            if(name&&value==undefined){
+                return this[0][name];
+            }
+            for(var i=0;i<this.length;i++){
+                this[i][name]=value;
+            }
+            return this;
+        },
+        redrow:function(){
+            var clone = $(this.html(true));
+            this.after(clone);
+            this.remove();
+            return clone;
+        },
         get: function(i) {
             i = i || 0;
             return i >= 0 ? this[i] : this[this.length + i];
@@ -262,7 +314,14 @@ DMIMI.plugin("tool", function($) {
         index: function() {
             return this.prevAll().size();
         },
-        size: function() {
+        size: function(object) {
+            if(object){
+                var len = 0;
+                for(var i in object){
+                    len++;
+                }
+                return len;
+            }
             return this.length;
         },
         hidden:function(ele){
@@ -270,18 +329,26 @@ DMIMI.plugin("tool", function($) {
                 return true;
             }
         },
-        css:function(prop){
-            if(typeof prop=="string"){
+        css:function(prop,value){
+            if(!prop){
+                return getComputedStyle(this[0]);
+            }
+            if(typeof prop=="string"&&!value){
                 return getComputedStyle(this[0])[prop];
             }
+            
             $.each(this,function(){
-                for(var i in prop){
-                    if(i.match(/width|height/)){
-                        if(String(prop[i]).indexOf("px")==-1&&!String(prop[i]).match(/auto|100%/)){
-                            prop[i] = prop[i]+"px";
+                if(value){
+                    this.style[prop] = value;
+                } else {
+                    for(var i in prop){
+                        if(i.match(/width|height/)){
+                            if(String(prop[i]).indexOf("px")==-1&&!String(prop[i]).match(/auto|100%/)){
+                                prop[i] = prop[i]+"px";
+                            }
                         }
+                        this.style[i] = prop[i];
                     }
-                    this.style[i] = prop[i];
                 }
             });
             return this;
@@ -304,7 +371,7 @@ DMIMI.plugin("tool", function($) {
             }
             if (typeof data == "boolean") {
                 var temp = $("<div></div>");
-                temp.append(ele);
+                temp.append(ele.clone());
                 return temp.html();
             }
             if (typeof data == "undefined") {
@@ -328,10 +395,10 @@ DMIMI.plugin("tool", function($) {
             div.append(ele);
             return div.html();
         },
-        param:function(){
-            var str = window.location.href,temp = {};
+        param:function(url){
+            var str = url||window.location.href,temp = {};
             if(str.indexOf("?")!=-1){
-                temp = $.paramToJson(str.split("?")[1]);
+                temp = $.paramToJson(str.split("?")[1].replace(/#/g,""));
             }
             return temp;
         },
@@ -355,7 +422,7 @@ DMIMI.plugin("tool", function($) {
                 return this[0]?this[0].getAttribute(name):undefined;
             }
         },
-        width: function(data) {.
+        width: function(data) {
             if(this[0]==window){
                 return this[0].innerWidth;
             }
@@ -375,6 +442,9 @@ DMIMI.plugin("tool", function($) {
             }
             return this[0].offsetHeight;
         },
+        offsetLeft:function(){
+            return this[0].offsetLeft;
+        },
         offsetTop: function() {
             var ele = this;
             var offsetTop = ele[0].offsetTop;
@@ -391,7 +461,7 @@ DMIMI.plugin("tool", function($) {
             }
             return offsetTop;
         },
-        hide: function(num) {
+        hide: function(num,callback) {
             var ele = this;
             if(num){
                 this.ani({
@@ -400,6 +470,7 @@ DMIMI.plugin("tool", function($) {
                     ele.css({
                         display: "none"
                     });
+                    callback.call(ele);
                 });
                 return;
             }
@@ -451,6 +522,46 @@ DMIMI.plugin("tool", function($) {
             }
             element.dispatchEvent(evt);
             return this;
+        },
+        cookie:function(name,value){
+            if(!name&&!value){
+                var arr = document.cookie.split("; ");
+                var temp = {};
+                for(var i=0;i<arr.length;i++){
+                    var thisArr = arr[i].split("=");
+                    temp[thisArr[0]] = thisArr[1];
+                }
+                return temp;
+            }
+            if(name&&!value){
+                var arr,reg=new RegExp("(^| )"+name+"=([^;]*)(;|$)");
+                if(arr=document.cookie.match(reg)){
+                    return unescape(arr[2]);
+                }else{
+                    return null;
+                }
+                return;
+            }
+            if(name&&value){
+                var Days = 30; 
+                var exp = new Date(); 
+                exp.setTime(exp.getTime() + Days*24*60*60*1000); 
+                document.cookie = name + "="+ escape (value) + ";expires=" + exp.toGMTString(); 
+                return;
+            }
+            
+        },
+        removeCookie:function(name){
+            if(name){
+                var exp = new Date(); 
+                exp.setTime(exp.getTime() - 1); 
+                var cval=getCookie(name); 
+                if(cval!=null){
+                    document.cookie= name + "="+cval+";expires="+exp.toGMTString();
+                }
+            }else{
+                document.cookie = null;
+            }
         },
         filter:function(selector){
             var domTemp = [];
@@ -563,55 +674,7 @@ DMIMI.plugin("tool", function($) {
             }
             return str.replace(/\{[a-z.A-Z]+\}/g,"");
         },
-        anipause:function(){
-            var self = this;
-            this.css({
-                "-webkit-transform":this.css("-webkit-transform"),
-
-            });
-            setTimeout(function(){
-                self.css({
-                    "-webkit-transition":"none"
-                });
-            },1)
-            return this;
-        },
-        anistop:function(){
-            this.css({
-                "-webkit-transition":"none"
-            });
-            this.removeAttr('animation');
-            this.off("webkitTransitionEnd");
-            return this;
-        },
-        ani:function(prop,time,ease,callback){
-            var ele = this;
-            time = time || 0.3;
-            ease = ease || "ease-in";
-            if(typeof ease == "function"){
-                callback = ease;
-                ease = "ease-in";
-            }
-            if(typeof time == "function"){
-                callback = time;
-                time = 0.3;
-            }
-            ele.css({
-                "-webkit-transition":"all "+time+"s "+ease
-            });
-
-            setTimeout(function(){
-                for(var i in prop){
-                    ele[0].style[i] = prop[i];
-                }
-                ele.attr('animation',"true");
-            },1000/10);
-            ele.off("webkitTransitionEnd").on("webkitTransitionEnd",function(){
-                if(callback){callback.call(this)}
-                ele.removeAttr('animation');
-            });
-            return this;
-        },
+        
         appendTo: function(data) {
             data.append(this);
             return this;
@@ -710,8 +773,7 @@ DMIMI.plugin("tool", function($) {
             if (a.Dmimi) {
                 arr = arr[0];
                 a = a[0][0];
-            }
-            for (var i = 0; i < arr.length; i++) {
+            }            for (var i = 0; i < arr.length; i++) {
                 if (arr[i] == a) {
                     return i;
                 }
@@ -746,7 +808,7 @@ DMIMI.plugin("tool", function($) {
                 }
             });
             for (var i = 0; i < num.length; i++) {
-                ele[0].splice(num[i], 1);
+                ele.splice(num[i], 1);
             }
             return ele;
         },
@@ -1121,7 +1183,7 @@ DMIMI.plugin("event", function($) {
                 var target = e.target;
                 $.each(dom, function() {
                     if (target == this || this.contains(target)) {
-                        callback.apply(this);
+                        callback.call(this,e);
                         return;
                     }
                 });
@@ -1161,23 +1223,36 @@ DMIMI.plugin("net", function($) {
                 type:"post",
                 dataType: "json",
                 success: function() {},
+                error:function(){},
                 complete:function(){}
             };
 
 
             var opt = $.extend(opts,options);
-            var callbackName,symbol,paramCallback,xmlhttp, script,link, head = $("head");
+            var callbackName,callbackParamName = "callback",symbol,paramCallback,xmlhttp, script,link, head = $("head");
+
 
             if(opt.dataType == "jsonp"){
-                callbackName = opt.jsonp || "jsonpcallback"+$.ajaxNum;
+
+                callbackName = "jsonpcallback"+$.ajaxNum;
+                if(opt.jsonp){
+                    callbackParamName = opt.jsonp;
+                }
                 window[callbackName] = function(res){
                     $(script).remove();
                     delete window[callbackName];
                     return opt.success(res);
                 }
                 
+                var randomTime = +new Date();
                 symbol = opt.url.indexOf("?")!=-1?"&":"?";
-                paramCallback = symbol+"callback=jsonpcallback"+$.ajaxNum;
+                opt.url = opt.url+symbol+"_dt="+randomTime;
+                symbol = opt.url.indexOf("?")!=-1?"&":"?";
+                paramCallback = symbol+callbackParamName+"=jsonpcallback"+$.ajaxNum;
+                if(opt.data){
+                    opt.url +="&"+$.jsonToParam(opt.data);
+                }
+
 
                 script = $.create("script",{type:"text/javascript",src:opt.url+paramCallback});
                 
@@ -1187,7 +1262,7 @@ DMIMI.plugin("net", function($) {
             if(opt.dataType=="js"){
                 script = $.create("script",{type:"text/javascript",src:opt.url});
                 script[0].onload = function(){
-                    $(script).remove();
+                    //$(script).remove();
                     return opt.success();
                 };    
                 head.append(script);
@@ -1212,15 +1287,14 @@ DMIMI.plugin("net", function($) {
                     if (xhr.readyState == 4){ // 代表读取服务器的响应数据完成  
 
                         opt.complete();
+                        var res = xhr.responseText || '{"success":"false","error":"nothing"}';
+                        if(opt.dataType="json" && res){
+                            res = JSON.parse(res);
+                        }
                         if (xhr.status == 200){ // 代表服务器响应正常  
-                            // 获取响应的数据  
-                            if(opt.dataType="json"){
-                                opt.success(JSON.parse(xhr.responseText));
-                            }else{
-                                opt.success(xhr.responseText);
-                            }
+                            opt.success(res);
                         }else{
-                            opt.error(xhr.responseText);  
+                            opt.error(res);
                         }
                     }  
                 };  
@@ -1228,6 +1302,186 @@ DMIMI.plugin("net", function($) {
             return xhr;
         },
         init: function() {
+            return this;
+        }
+    }).init();
+});
+
+DMIMI.plugin("packet", function($) {
+    return ({
+        debug: function() {
+            if($.os().desktop) return;
+            var _class = {
+                init:function(){
+                    _class.view.main();
+                },
+                view:{
+                    main:function(){
+                        _class.view.wrap();
+                        _class.view.control();
+                        _class.view.content();
+                        _class.boxWrap.append(_class.boxContent);
+                        $("body").append(_class.boxWrap);
+                        $("body").append(_class.btnControl);
+                    },
+                    wrap:function(){
+                        _class.boxWrap = $("<div id='debug-wrap'></div>");
+                        _class.boxWrap.css({
+                            "position":"fixed",
+                            "bottom":"0px",
+                            "left":"0px",
+                            "right":"0px",
+                            "height":window.screen.height*0.2+"px",
+                            "z-index":"9999",
+                            "overflow":"auto",
+                            "background":"rgba(0,0,0,0.7)",
+                            "color":"#fff"
+                        });
+                    },
+                    control:function(){
+                        _class.btnControl = $("<div id='debug-btn-control'></div>");
+                        _class.btnControl.css({
+                            "position":"fixed",
+                            "bottom":window.screen.height*0.2+"px",
+                            "right":"0px",
+                            "width":"30px",
+                            "height":"30px",
+                            "z-index":"9999",
+                            "background":"rgba(0,0,0,0.3)",
+                            "color":"#fff"
+                        });
+                    },
+                    content:function(){
+                        _class.boxContent = $("<div id='debug-box-content'></div>");
+                        _class.btnControl.css({
+                            "padding":"10px"
+                        });
+                    }
+                },
+                event:{
+                    append:function(param){
+                        var div = $("<div>"+param+"</div>");
+                        _class.boxContent.append(div);
+                    }
+                }
+            }
+            _class.init();
+
+            window.console = {
+                log:function(obj){
+                    // 如果是json
+                    if(typeof(obj) == "object" && Object.prototype.toString.call(obj).toLowerCase() == "[object object]" && !obj.length){
+                        obj = JSON.stringify(obj);
+                    }
+                    _class.event.append(obj);
+                }
+            }
+            return this;
+        },
+        handou:function(){
+
+            function HANDOU(ele){
+                this._nodes = [];
+                this.ele = ele;
+                this.init();
+            };
+
+            HANDOU.prototype.init = function(){
+                this._nodes.push(this.ele);
+                this.ele = this.ele[0];
+                if(this.ele&&!this.ele.events){
+                    this.ele.events = {};
+                }
+                return this.export;
+            };
+
+            HANDOU.prototype._hasTarget = function(target,type){
+                if(this._nodes.length>0){
+                    for(var i=0;i<this._nodes.length;i++){
+                        if(this._nodes[i].contains(target)&&this._nodes[i][0].events[type]){
+                            return this._nodes[i][0];
+                        }
+                    }
+                    return false;
+                }else{
+                    return false;
+                }
+            };
+
+
+            HANDOU.prototype.off = function(type){
+                delete this.ele.events[type];
+                return this;
+            };
+
+            HANDOU.prototype.on = function(type,start,move,end){
+                var self = this;
+
+                if(!this.ele) return self;
+                this.ele.events[type] = [start||function(){},move||function(){},end||function(){}];
+                if(this["_"+type+"enable"]) return self;
+
+                var touchNum,touchFn;
+
+                switch(type){
+                    case "drag":
+                        touchNum = 1;
+                        touchFn = function(e){
+                            return [e,e.targetTouches[0].clientX,e.targetTouches[0].clientY];
+                        }
+                    break;
+                    case "pinch":
+                        touchNum = 2;
+                        touchFn = function(e){
+                            return [e,e.targetTouches[0].clientX,e.targetTouches[1].clientX,e.targetTouches[0].clientY,e.targetTouches[1].clientY];
+                        }
+                    break;
+                }
+                
+                $(document).on("touchstart",function(e){
+                    
+                    var ele = self._hasTarget(e.target,type);
+                    if(ele){
+                        //$("#info_end").html(touchNum);
+                        if(touchNum != e.targetTouches.length) return;
+                        if(!ele.events[type]) return;
+                        self._nowTouchType = type;
+                        ele.events[type][0].apply(ele,touchFn(e));
+                        e.preventDefault();
+                    }
+                });
+                $(document).on("touchmove",function(e){
+                    var ele = self._hasTarget(e.target,type);
+                    if(ele){
+                        if(touchNum != e.targetTouches.length) return;
+                        if(!ele.events[type]) return;
+                        if(self._nowTouchType != type) return;
+                        ele.events[type][1].apply(ele,touchFn(e));
+                        e.preventDefault();
+                    }
+                });
+
+                // pinch end 只触发pinch end
+                $(document).on("touchend",function(e){
+                    var ele = self._hasTarget(e.target,type);
+                    if(ele){
+                        if(!ele.events[type]) return;
+
+                        ele.events[type][2].call(ele,e);
+                        e.preventDefault();
+                    }
+                });
+                self["_"+type+"enable"] = true;
+
+                return self;
+            };
+            
+            return new HANDOU(this);
+            
+        },
+        init: function() {
+            var self = this;
+            this.handou();
             return this;
         }
     }).init();
