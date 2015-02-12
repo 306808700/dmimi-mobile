@@ -294,12 +294,7 @@ DMIMI.plugin("tool", function($) {
         },
         data:function(name,value){
             if(name&&value==undefined){
-                if(this[0][name]){
-                    return this[0][name];
-                }
-                if($(this).attr("data-"+name)){
-                    return $(this).attr("data-"+name);
-                }
+                return this[0][name];
             }
             for(var i=0;i<this.length;i++){
                 this[i][name]=value;
