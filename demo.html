@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<link rel="dns-prefetch" href="http://g.alicdn.com">
+<link rel="dns-prefetch" href="http//gtms01.alicdn.com">
+<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+<title>dmimi-mobile 实验室</title>
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="format-detection" content="telephone=no">
+<meta name="aplus-terminal" content="1">
+<link href="prism.css" rel="stylesheet" />
+<style type="text/css">
+.box{
+	padding: 10px;
+	position: relative;
+	border-bottom: 1px solid #ccc;
+}
+
+.box .code{
+	padding: 10px;
+	background: #eee;
+	position: relative;
+}
+.box button{
+	height: 30px;
+	width: 60px;
+
+}
+
+.pre-hide{
+	height: 20px;
+	padding: 0px;
+	position: relative;
+}
+.pre-hide:before{
+	content:"点击显示<code>";
+	position: absolute;
+	left: 5px;
+	top: 5px;
+	color:green;
+
+}
+.pre-hide code{
+	display: none;
+}
+.pre-show{
+	position: relative;
+}
+.pre-show:before{
+	content:"点击收起<code>";
+	position: absolute;
+	left: 5px;
+	top: 5px;
+	color:green;
+}
+</style>
+</head>
+<body>
+
+</html>
+<script src="dmimi-mobile.js"></script>
+<script src="prism.js"></script>
+<script src="api.js"></script>
+
+
+<div class="api">
+	<!-- api 渲染在这里-->
+</div>
+
+
+<script type="text/javascript">
+	
+	var Demo = {
+		delayFns:{},
+		resetCode:{},
+		render:function(){
+			var tpl = '[list]<div class="box">\
+				<h3>{name}</h3>\
+				<div data-name="code-ani" class="code">\
+					{code}\
+				</div>\
+				<pre class="pre-hide">\
+					<code class="language-javascript">{exp}</code>\
+				</pre>\
+				<div><button data-name="{runFnKey}" class="btnRun">运行</button> <button class="btnRest" data-name="{resetCodeKey}">重置</button></div>\
+			</div>[/list]'
+
+			var str = $.template(tpl,{list:api_data},{
+				exp:function(obj){
+					return obj.exp.toString().replace("function (){","\n").replace(/\}$/,"");
+				},
+				runFnKey:function(obj){
+					var key = +new Date();
+					Demo.delayFns[key] = obj.exp;
+					return (+new Date());
+				},
+				resetCodeKey:function(obj){
+					var key = +new Date();
+					Demo.resetCode[key] = obj.code;
+					return (+new Date());
+				}
+			});
+			
+			$(".api").html(str);
+			$(".btnRun").on("click",function(){
+				Demo.delayFns[$(this).data("name")]();
+			});
+			$(".btnRest").on("click",function(){
+				$(this).parent().parent().find(".code").html(Demo.resetCode[$(this).data("name")]);
+			});
+			$("pre").on("click",function(){
+				if($(this).hasClass("pre-hide")){
+					$(this).addClass("pre-show").removeClass("pre-hide");
+				}else{
+					$(this).removeClass("pre-show").addClass("pre-hide");
+				}
+			});
+		}
+	}
+
+	Demo.render();
+
+
+</script>
+
+
+
