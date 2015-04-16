@@ -266,36 +266,15 @@ var DMIMI = (function(){
 DMIMI.plugin("tool", function($) {
     var self;
     return ({
-        zoom:function(){
-            // "adaptive"
-            if(!$(".zoom")[0]){
-                console.warn(".zoom is undefined");
-                return;
-            }
-            var cwidth = document.body.clientWidth;
-
-            // 大屏，ipad？
-            if(cwidth>720){
-                $(".zoom").css({
-                    "margin":"auto",
-                    "width":"320px"
-                });
-                return;
-            }
-
-            var bl = cwidth/320;
-            $(".zoom").css({
-                "-webkit-transform":"scale("+bl+")",
-                "-webkit-transform-origin":"0px 0px 0px",
-                "margin":"0px",
-                "width":"320px",
-                "overflow":"hidden"
-            });
-        },
+        
         data:function(name,value){
             if(name&&value==undefined){
+                if(!this[0][name]){
+                    return this.attr("data-"+name);
+                }
                 return this[0][name];
             }
+
             for(var i=0;i<this.length;i++){
                 this[i][name]=value;
             }
@@ -329,12 +308,19 @@ DMIMI.plugin("tool", function($) {
                 return true;
             }
         },
+        transform:function(type){
+            return $.martix($(this).css("-webkit-transform"))[type];
+        },
         css:function(prop,value){
-            if(!prop){
+            if(prop==undefined||null){
                 return getComputedStyle(this[0]);
             }
             if(typeof prop=="string"&&!value){
-                return getComputedStyle(this[0])[prop];
+                if(this[0]){
+                    return getComputedStyle(this[0])[prop];
+                }else{
+                    return null;
+                }
             }
             
             $.each(this,function(){
@@ -354,7 +340,8 @@ DMIMI.plugin("tool", function($) {
             return this;
         },
         trim: function(data) {
-            return data.replace(/^\s*|\s*$/g, "");
+
+            return data?data.replace(/^[\s\n\t]*|[\s\n\t]*$/g, ""):"";
         },
         html: function(data) {
             var ele = this;
@@ -403,6 +390,9 @@ DMIMI.plugin("tool", function($) {
             return temp;
         },
         text: function(data) {
+            if(!this[0]){
+                return undefined;
+            }
             if (data || data == "") {
                 $.each(this, function() {
                     this.textContent = data;
@@ -463,46 +453,54 @@ DMIMI.plugin("tool", function($) {
         },
         hide: function(num,callback) {
             var ele = this;
+            var callback = callback||function(){};
             if(num){
                 this.ani({
-                    "opacity":"0"
-                },num/1000,function(){
-                    ele.css({
-                        display: "none"
-                    });
-                    callback.call(ele);
+                    prop:{
+                        "opacity":"0"
+                    },
+                    duration:num/1000,
+
+                    end:function(){
+                        ele.css({
+                            display: "none"
+                        });
+                        callback.call(ele);
+                    }
                 });
-                return;
+                return this;
             }
             this.css({
                 display: "none"
             });
             return this;
         },
-        show: function(num) {
+        show: function(num,callback) {
             var ele = this;
+            var callback = callback||function(){};
             if(num){
                 this.css({
-                    "-webkit-transition":"opacity "+num/1000+"s",
-                    "opacity":"0.8",
+                    "opacity":"0",
                     "display":"block"
                 });
-                setTimeout(function(){
-                    ele.css({
-                        "opacity":1
-                    });
-                },1);
-                setTimeout(function(){
-                    ele.css({
-                        "-webkit-transition":"none"
-                    });
-                },num+1000);
-            }else{
-                this.css({
-                    display: "block",
-                    "opacity":"1"
+
+                this.ani({
+                    prop:{
+                        "opacity":"1"
+                    },
+                    duration:num/1000,
+
+                    end:function(){
+                        callback.call(ele);
+                    }
                 });
+                return this;
             }
+            this.css({
+                "opacity":"1",
+                "display":"block"
+            });
+
             return this;
         },
         getLength: function(obj) {
@@ -573,7 +571,7 @@ DMIMI.plugin("tool", function($) {
             });
             return $.classArray(domTemp);
         },
-        template: function(str, json ,listFun,rootFun) {
+        template: function(str, json ,listFun,rootFun, unNil) {
 
             /*
                 思路，遍历数据一次一次的替换掉key名
@@ -582,97 +580,113 @@ DMIMI.plugin("tool", function($) {
                 所有的数据结构在表现上最多只有二级，一是为了简化结构，还能加速遍历
                 做法是，首先
             */
+            function render(str){
 
-
-            var _eval = function(r){
-                return eval("/{" + r + "}/g");
-            };
-            
-            var res = {
-                futher:/{([a-zA-Z\d]+\.[a-zA-Z\d]+)}/g
-            }
-
-            
-            var futherFn = function(obj,str){
-                var futherArr = str.match(res.futher);
-                if(futherArr){
-                    for(var j=0;j<futherArr.length;j++){
-                        var resStr = futherArr[j].replace(/[{}]/g,"");
-                        if($.futher(obj,resStr)){
-                            str = str.replace(futherArr[j],$.futher(obj,resStr)||"");
-                        }
-                    }
+                var _eval = function(r){
+                    return eval("/{" + r + "}/g");
+                };
+                
+                var res = {
+                    futher:/{([a-zA-Z\d]+\.[a-zA-Z\d]+)}/g
                 }
-                return str;
-            }
 
-            /*
-                拿出数组
-            */
-            var arrTemp = {};
-            var arrArray = str.match(/\[([^\]]+)\][^\[]+\[\/\1\]/g);
-            if(arrArray){
-                for(var i=0;i<arrArray.length;i++){
-                    arrTemp[i] = arrArray[i];
-                    str = str.replace(arrTemp[i],"arrTemp"+i);
-                }
-            }
-            
-            str = futherFn(json,str);
-
-            /* 
-                复原
-            */
-            if(arrArray){
-                var arr = str.match(/arrTemp\d/g);
-                for(var i=0;i<arr.length;i++){
-                    str = str.replace(arr[i],arrTemp[i]);
-                }
-            }
-
-            /*
-                函数处理
-            */
-            for (var s in rootFun) {
-                str = str.replace(_eval(s), rootFun[s](json));
-            }
-
-            for (var name in json) {
-
-                if (typeof json[name] == "object") {
-                    var indexNum = str.indexOf("[" + name + "]");
-                    var lastNum = str.lastIndexOf("[/" + name + "]");
-                    var newStr = "";
-
-                    if(indexNum==-1){
-                        continue;
-                    }
-
-                    var getStr = str.substring(indexNum + 2 + name.length, lastNum);
-                    for (var i = 0; i < json[name].length; i++) {
-                        var newStrP = getStr;
-                        for (var s in listFun) {
-                            newStrP = newStrP.replace(_eval(s), listFun[s](json[name][i],i));
-                        }
-
-                        if(typeof json[name][i]=="string"){
-                            newStrP = newStrP.replace(_eval("value"), json[name][i]);
-                        }else{
-                            for (var s in json[name][i]) {
-                                newStrP = newStrP.replace(_eval(s), json[name][i][s]);
+                
+                var futherFn = function(obj,str){
+                    var futherArr = str.match(res.futher);
+                    if(futherArr){
+                        for(var j=0;j<futherArr.length;j++){
+                            var resStr = futherArr[j].replace(/[{}]/g,"");
+                            if($.futher(obj,resStr)||$.futher(obj,resStr)==0){
+                                str = str.replace(futherArr[j],$.futher(obj,resStr));
                             }
                         }
-                        newStrP = futherFn(json[name][i],newStrP);
-                        newStr += newStrP;
                     }
-                    str = str.replace("[" + name + "]" + getStr + "[/" + name + "]", newStr);
-                } else {
-                    if (json[name]!=="") {
-                        str = str.replace(_eval(name), json[name]);
+                    return str;
+                }
+
+                /*
+                    拿出数组
+                */
+                var arrTemp = {};
+                var arrArray = str.match(/\[([^\]]+)\][^\[]+\[\/\1\]/g);
+                if(arrArray){
+                    for(var i=0;i<arrArray.length;i++){
+                        arrTemp[i] = arrArray[i];
+                        str = str.replace(arrTemp[i],"arrTemp"+i);
                     }
                 }
+                
+                
+
+                /* 
+                    复原
+                */
+                if(arrArray){
+                    var arr = str.match(/arrTemp\d/g);
+                    for(var i=0;i<arr.length;i++){
+                        str = str.replace(arr[i],arrTemp[i]);
+                    }
+                }
+
+                /*
+                    函数处理
+                */
+                for (var s in rootFun) {
+                    str = str.replace(_eval(s), rootFun[s](json));
+                }
+
+                str = futherFn(json,str);
+
+                for (var name in json) {
+
+                    if (typeof json[name] == "object") {
+                        var indexNum = str.indexOf("[" + name + "]");
+                        var lastNum = str.lastIndexOf("[/" + name + "]");
+                        var newStr = "";
+
+                        if(indexNum==-1){
+                            continue;
+                        }
+
+                        var getStr = str.substring(indexNum + 2 + name.length, lastNum);
+                        for (var i = 0; i < json[name].length; i++) {
+                            var newStrP = getStr;
+                            for (var s in listFun) {
+                                newStrP = newStrP.replace(_eval(s), listFun[s](json[name][i],i));
+                            }
+
+                            if(typeof json[name][i]=="string"){
+                                newStrP = newStrP.replace(_eval("value"), json[name][i]);
+                            }else{
+                                for (var s in json[name][i]) {
+                                    newStrP = newStrP.replace(_eval(s), json[name][i][s]);
+                                }
+                            }
+                            newStrP = futherFn(json[name][i],newStrP);
+                            newStr += newStrP;
+                        }
+
+                        str = str.replace("[" + name + "]" + getStr + "[/" + name + "]", newStr);
+                    } else {
+
+                        if (json[name]!=="") {
+
+                            str = str.replace(_eval(name), json[name]);
+                        }
+                    }
+                }
+                if(unNil){
+                    return str.replace(/\{[a-z.A-Z]+\}/g,"");
+                }else{
+                    return str;
+                }
             }
-            return str.replace(/\{[a-z.A-Z]+\}/g,"");
+            if(typeof str=="object"){
+                var tpl = String(str.html());
+                return str.html(render(tpl));
+            }else{
+                return render(str);
+            }
         },
         
         appendTo: function(data) {
@@ -813,11 +827,31 @@ DMIMI.plugin("tool", function($) {
             return ele;
         },
         date: function(date, f) {
+            if(date=="刚刚"){
+                return date;
+            }
             if (typeof date != "object") {
-                f = date;
-                date = new Date();
+                if(!String(date).match(/\d*/)){
+                    f = date;
+                    console.log(f);
+                    date = new Date();
+                }else{
+                    date = new Date(Number(date));
+                }
             }
             f = f || "yyyy-MM-dd hh:mm:ss";
+            if(f=="human"){
+                var d1 = +new Date(date);
+                var d2 = +new Date();
+                if(d1<d2){
+                    f = "MM-dd";
+                }else if(d1==d2){
+                    f = "昨天";
+                }
+                else{
+                    f = "hh:mm";
+                }
+            }
             var o = {
                 "M+": date.getMonth() + 1,
                 "d+": date.getDate(),
@@ -891,7 +925,7 @@ DMIMI.plugin("tool", function($) {
 
             function fn(ele) {
                 if (i < len) {
-                    if(ele[arr[i]]){
+                    if(ele[arr[i]]||ele[arr[i]]==0){
                         obj = ele[arr[i]];
                         i++;
                         fn(obj);
@@ -1138,12 +1172,16 @@ DMIMI.plugin("event", function($) {
             callback = callback || function() {};
             $.each(this, function() {
                 var dom = this;
-                dom.events = dom.events || [];
+                dom.events = dom.events || {};
                 dom.addEventListener(type, callback);
-                dom.events.push({
+                dom.events[type] = dom.events[type]||[];
+                dom.events[type].push(callback);
+                /*
+                 ({
                     type: type,
                     fn: callback
                 });
+                */
             });
             return this;
         },
@@ -1162,11 +1200,7 @@ DMIMI.plugin("event", function($) {
                     dom[ev](type, callback);
                 } else {
                     if (dom.events) {
-                        for (var i = 0; i < dom.events.length; i++) {
-                            if (type == dom.events[i].type) {
-                                dom[ev](type, dom.events[i].fn);
-                            }
-                        }
+                        delete dom.events[type];
                     }
                     dom[ev][type] = null;
                 }
@@ -1179,9 +1213,11 @@ DMIMI.plugin("event", function($) {
         delegate: function(selector, type, callback) {
             var ele = this;
             ele.on(type, function(e) {
-                var dom = $._selector(selector, ele[0]);
+                var dom = ele.find(selector);
                 var target = e.target;
+
                 $.each(dom, function() {
+                    
                     if (target == this || this.contains(target)) {
                         callback.call(this,e);
                         return;
@@ -1222,6 +1258,7 @@ DMIMI.plugin("net", function($) {
                 url:"aboutblank",
                 type:"post",
                 dataType: "json",
+                timeout:0,
                 success: function() {},
                 error:function(){},
                 complete:function(){}
@@ -1274,6 +1311,7 @@ DMIMI.plugin("net", function($) {
                 return false;
             }
 
+
             if(opt.type.match(/post|get/)){
                 var xhr =  new XMLHttpRequest();
                 xhr.open(opt.type.toUpperCase(), opt.url, true);  
@@ -1282,19 +1320,37 @@ DMIMI.plugin("net", function($) {
                     opt.beforeSend(xhr);
                 }
                 xhr.send(opt.data?$.jsonToParam(opt.data):null);
+
+                if(opt.timeout){
+                    setTimeout(function(){
+                        opt.timeoutBoolen = true;
+                        opt.error({responseText:"timeout",status:"001"});
+
+                    },opt.timeout*1000);
+                }
                 xhr.onreadystatechange = function(){  
+                    if(opt.timeoutBoolen) return;
                     //alert(xhr.readyState);  
                     if (xhr.readyState == 4){ // 代表读取服务器的响应数据完成  
-
+                        
+                        var res = xhr.responseText || '{"responseText":"","status":"'+xhr.status+'"}';
                         opt.complete();
-                        var res = xhr.responseText || '{"success":"false","error":"nothing"}';
-                        if(opt.dataType="json" && res){
-                            res = JSON.parse(res);
-                        }
+                        console.log(1423);
                         if (xhr.status == 200){ // 代表服务器响应正常  
-                            opt.success(res);
+                            if(opt.dataType=="json" && res){
+                                try{
+
+                                    res = JSON.parse(xhr.responseText);
+                                }
+                                catch(e){
+                                    console.log(123);
+                                    opt.error({responseText:"can not parse responseText",status:xhr.status,res:xhr.responseText});
+                                    return;
+                                }
+                            }
+                            opt.success(res,xhr.status);
                         }else{
-                            opt.error(res);
+                            opt.error({responseText:xhr.responseText,status:xhr.status});
                         }
                     }  
                 };  
@@ -1309,11 +1365,73 @@ DMIMI.plugin("net", function($) {
 
 DMIMI.plugin("packet", function($) {
     return ({
-        debug: function() {
+        styleRule:function(){
+            return {
+                add:function(key,value){ 
+                    var css = document.styleSheets[document.styleSheets.length-1]; 
+                    css.cssRules ? 
+                    (css.insertRule(key+"{"+value+"}", css.cssRules.length)) : 
+                    (css.addRule(key,value)) ; 
+                },
+                remove:function(key){ 
+                    for(var i = 0; i < document.styleSheets.length; i++){ 
+                        var css = document.styleSheets[i]; 
+                        css.cssRules ? 
+                            (function(){ 
+                                for(var j = 0; j < css.cssRules.length; j++){ 
+                                    if(css.cssRules[j].selectorText==key){ 
+                                        css.deleteRule(j); 
+                                    }   
+                                } 
+                            })() : (css.removeRule(key)) ; 
+                    } 
+                }
+            }
+        },
+        debug: function(options) {
+            var options = options||{};
             if($.os().desktop) return;
+            if($("#debug-wrap")[0]) return;
+
             var _class = {
                 init:function(){
                     _class.view.main();
+                    if(options.livereload){
+                        _class.tool.checkUpdate();
+                    }
+                },
+                tool:{
+                    checkUpdate:function(){
+                        $.ajax({
+                            url:options.livereload,
+                            dataType:"js",
+                            success:function(res,status){
+                                if(window.edition&&window.edition!=$.param().edition){
+                                   _class.tool.reload(window.edition);
+                                }else{
+                                    setTimeout(function(){
+                                        _class.tool.checkUpdate();
+                                    },5000);
+                                }
+                            }
+                        });
+                    },
+                    reload:function(edition){
+                        var href = window.location.href;
+                        if($.param().randomTime){
+                            href = href.replace(/&randomTime=[\d]*/g,"");
+                            href = href.replace(/\?randomTime=[\d]*/g,"");
+                        }
+                        if($.param().edition){
+                            href = href.replace(/&edition=[\d]*/g,"");
+                        }
+                        var symbol = href.indexOf("?")!=-1?"&":"?";
+
+                        href = href+symbol+"randomTime="+(+new Date());
+                        href = href+"&edition="+(window.edition||1);
+                        
+                        window.location.href = href;
+                    }
                 },
                 view:{
                     main:function(){
@@ -1322,7 +1440,7 @@ DMIMI.plugin("packet", function($) {
                         _class.view.content();
                         _class.boxWrap.append(_class.boxContent);
                         $("body").append(_class.boxWrap);
-                        $("body").append(_class.btnControl);
+                        $("body").append(_class.btn);
                     },
                     wrap:function(){
                         _class.boxWrap = $("<div id='debug-wrap'></div>");
@@ -1336,14 +1454,35 @@ DMIMI.plugin("packet", function($) {
                             "overflow":"auto",
                             "background":"rgba(0,0,0,0.7)",
                             "color":"#fff",
-                            "padding":"5px"
+                            "padding":"5px",
+                            "display":"none",
+                            "-webkit-overflow-scrolling":"touch"
+                        });
+
+                        if(options.refresh){
+                            _class.refresh = $("<div class='debug-refresh'>刷新</div>");
+                            _class.refresh.css({
+                                  position:" absolute",
+                                  bottom: "5px",
+                                  right: "0px",
+                                  width: "40px",
+                                  height: "25px",
+                                  "text-align": "center"
+                            }).on("click",function(){
+                                _class.tool.reload();
+                            });
+                            _class.boxWrap.append(_class.refresh);
+                        }
+                        // ???
+                        _class.boxWrap.on("touchmove",function(e){
+                            e.stopPropagation();
                         });
                     },
                     control:function(){
-                        _class.btnControl = $("<div id='debug-btn-control'>叉</div>");
-                        _class.btnControl.css({
+                        _class.btn = $("<div id='debug-btn'>◕‿◕</div>");
+                        _class.btn.css({
                             "position":"fixed",
-                            "bottom":window.screen.height*0.2+"px",
+                            "bottom":"0px",
                             "right":"0px",
                             "width":"30px",
                             "height":"30px",
@@ -1351,7 +1490,9 @@ DMIMI.plugin("packet", function($) {
                             "background":"rgba(0,0,0,0.3)",
                             "color":"#fff",
                             "line-height":"30px",
-                            "text-align":"center"
+                            "text-align":"center",
+                            "border-radius":"999px",
+                            "font-size":"12px"
                         }).on("click",function(){
                             if(_class.boxWrap.css("display")!="none"){
                                 _class.boxWrap.hide();
@@ -1373,7 +1514,7 @@ DMIMI.plugin("packet", function($) {
                 event:{
                     append:function(param){
                         var div = $("<div>"+param+"</div>");
-                        _class.boxContent.append(div);
+                        _class.boxContent.prepend(div);
                     }
                 }
             }
@@ -1463,6 +1604,7 @@ DMIMI.plugin("packet", function($) {
                     break;
                 }
                 
+                
                 $(document).on("touchstart",function(e){
                     
                     var ele = self._hasTarget(e.target,type);
@@ -1472,20 +1614,24 @@ DMIMI.plugin("packet", function($) {
                         if(!ele.events[type]) return;
                         self._nowTouchType = type;
                         ele.events[type][0].apply(ele,touchFn(e));
-                        e.preventDefault();
+                        //e.preventDefault();
                     }
                 });
+
                 $(document).on("touchmove",function(e){
+                    
                     var ele = self._hasTarget(e.target,type);
                     if(ele){
                         if(touchNum != e.targetTouches.length) return;
                         if(!ele.events[type]) return;
                         if(self._nowTouchType != type) return;
                         ele.events[type][1].apply(ele,touchFn(e));
-                        e.preventDefault();
+                        //e.preventDefault();
+                        //e.stopPropagation();
                     }
+                   
                 });
-
+    
                 // pinch end 只触发pinch end
                 $(document).on("touchend",function(e){
                     var ele = self._hasTarget(e.target,type);
@@ -1493,9 +1639,10 @@ DMIMI.plugin("packet", function($) {
                         if(!ele.events[type]) return;
 
                         ele.events[type][2].call(ele,e);
-                        e.preventDefault();
+                        //e.preventDefault();
                     }
                 });
+
                 self["_"+type+"enable"] = true;
 
                 return self;
@@ -1504,49 +1651,82 @@ DMIMI.plugin("packet", function($) {
             return new HANDOU(this);
             
         },
-        aniQueue:function(){
+        animation:function(options){
+            var self = this;
+            $.animationNum = $.animationNum?($.animationNum+1):1;
+
+            console.log($.animationNum);
+            var frame = options.frame,
+                        duration = options.duration || 0.3,
+                        timing = options.timing || "linear",
+                        delay = options.delay||0,
+                        count = options.count || 1,
+                        end = options.end || function() {},
+                        name = "dmimi-animation"+ $.animationNum;
+
+            if($(this).hasClass(name)){
+                $(this).removeClass(name);
+            }
+
+
+            $(this).removeClass("dmimi-animation"+($.animationNum-1))
+
+            $.styleRule().add("."+name,"-webkit-animation: "+name+"KeyFrame "+duration+"s "+timing+" "+delay+"s"+" "+count);
+            $.styleRule().add("@-webkit-keyframes "+name+"KeyFrame",frame);
+            
+            $(self).addClass(name);
+            $(self).on("webkitAnimationEnd",end);
+
+
+        },
+        aniQueueClass:function(){
             var RAF = window.requestAnimationFrame ||
                     window.webkitRequestAnimationFrame ||
                     function(callback) {
                         setTimeout(callback, 1000 / 60);
                     };
-
-            var _aniMartix = function(transform) {
-                var transformArr = transform.replace(/[matrix()\s]/g, "").split(",");
-                var rotateC = Math.round(Math.acos(transformArr[0]) * 180 / Math.PI);
-                var rotateS = Math.round(Math.asin(transformArr[1]) * 180 / Math.PI);
-                var rotate_C = Math.round(Math.acos(transformArr[2]) * 180 / Math.PI);
-                var rotate_S = Math.round(Math.asin(transformArr[3]) * 180 / Math.PI);
-                rotate = rotateC;
-                if (rotateS < 0) {
-                    rotate = 180 - rotateS;
-                }
-                if (rotateC < 90 && rotateS > -90 && rotate_C > 0 && rotate_C < 90 && rotate_S > 0) {
-                    rotate = 270 + rotate_C;
-                }
-                var translateX = transformArr[4];
-                var translateY = transformArr[5];
-                var transformStyle = "";
-                // 设置scale
-                if (Math.abs(transformArr[0]) != 1 || Math.abs(transformArr[3]) != 1) {
-                    if (Math.abs(transformArr[0]) == Math.abs(transformArr[3])) {
-                        transformStyle = " scale(" + transformArr[0] + ")";
-                    } else {
-                        transformStyle = " scale(" + transformArr[0] + "," + transformArr[3] + ")";
-                    }
-                }
-                if (rotate) {
-                    transformStyle += " rotate(" + rotate + "deg)";
-                }
-                if (Number(translateX)) {
-                    transformStyle += " translateX(" + translateX + "px)";
-                }
-                if (Number(translateY)) {
-                    transformStyle += " translateY(" + translateY + "px)";
-                }
-                return transformStyle;
-            };
             var _exports = {
+                martix:function(transform){
+                    var transformArr = transform.replace(/[matrix()\s]/g, "").split(",");
+                    var rotateC = Math.round(Math.acos(transformArr[0]) * 180 / Math.PI);
+                    var rotateS = Math.round(Math.asin(transformArr[1]) * 180 / Math.PI);
+                    var rotate_C = Math.round(Math.acos(transformArr[2]) * 180 / Math.PI);
+                    var rotate_S = Math.round(Math.asin(transformArr[3]) * 180 / Math.PI);
+                    rotate = rotateC;
+                    if (rotateS < 0) {
+                        rotate = 180 - rotateS;
+                    }
+                    if (rotateC < 90 && rotateS > -90 && rotate_C > 0 && rotate_C < 90 && rotate_S > 0) {
+                        rotate = 270 + rotate_C;
+                    }
+                    var translateX = transformArr[4];
+                    var translateY = transformArr[5];
+                    var transformStyle = "";
+                    // 设置scale
+                    if (Math.abs(transformArr[0]) != 1 || Math.abs(transformArr[3]) != 1) {
+                        if (Math.abs(transformArr[0]) == Math.abs(transformArr[3])) {
+                            transformStyle = " scale(" + transformArr[0] + ")";
+                        } else {
+                            transformStyle = " scale(" + transformArr[0] + "," + transformArr[3] + ")";
+                        }
+                    }
+                    if (rotate) {
+                        transformStyle += " rotate(" + rotate + "deg)";
+                    }
+                    if (Number(translateX)) {
+                        transformStyle += " translateX(" + translateX + "px)";
+                    }
+                    if (Number(translateY)) {
+                        transformStyle += " translateY(" + translateY + "px)";
+                    }
+
+                    return {
+                        translateX:Number(transformArr[4]),
+                        translateY:Number(transformArr[5]),
+                        scale:Number(rotate),
+                        transformStyle:transformStyle
+                    }
+                },
                 _aniData: function(name, value) {
                     if (name && !value) {
                         return this[0][name];
@@ -1599,7 +1779,7 @@ DMIMI.plugin("packet", function($) {
                     var i = 0,
                         len = self.length;
                     for (; i < len; i++) {
-                        var transform = _aniMartix($(self[i]).css("-webkit-transform"));
+                        var transform = $(self[i]).transform("transformStyle");
                         self._aniData("anistyle").aniPausedTime = +new Date();
                         $(self[i]).css({
                             "-webkit-transition": "none",
@@ -1703,6 +1883,7 @@ DMIMI.plugin("packet", function($) {
                             }
                             ele.attr('animation', "true");
                         });
+
                         ele.off("webkitTransitionEnd").on("webkitTransitionEnd", function() {
                             // 每个属性发生改变都会触发一次
                             endNum++;
@@ -1754,8 +1935,9 @@ DMIMI.plugin("packet", function($) {
         init: function() {
             var self = this;
             this.handou();
-            this.aniQueue();
+            this.aniQueueClass();
             return this;
         }
     }).init();
 });
+
